@@ -185,9 +185,6 @@ endif
 ifeq ($(LIBTOOL),)
 	export LIBTOOL := $(shell $(XCRUN) -sdk $(SDKROOT) -find libtool)
 endif
-ifeq ($(OTOOL),)
-	export OTOOL := $(shell $(XCRUN) -sdk $(SDKROOT) -find otool)
-endif
 ifeq ($(NM),)
 	export NM := $(shell $(XCRUN) -sdk $(SDKROOT) -find nm)
 endif

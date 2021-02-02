@@ -31,7 +31,6 @@ export MakeInc_def=${VERSDIR}/makedefs/MakeInc.def
 export MakeInc_rule=${VERSDIR}/makedefs/MakeInc.rule
 export MakeInc_dir=${VERSDIR}/makedefs/MakeInc.dir
 
-
 #
 # Dispatch non-xnu build aliases to their own build
 # systems. All xnu variants start with MakeInc_top.
@@ -187,7 +186,7 @@ TOP_TARGETS = \
 	install install_desktop install_embedded \
 	install_release_embedded install_development_embedded \
 	install_kernels \
-	cscope tags TAGS \
+	cscope tags TAGS checkstyle restyle check_uncrustify uncrustify \
 	help
 
 DEFAULT_TARGET = all

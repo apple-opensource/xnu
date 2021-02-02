@@ -3129,13 +3129,9 @@ user_data_get_value(
 		/* redeem of previous values is the value */
 		if (0 < prev_value_count) {
 			elem = (user_data_element_t)prev_values[0];
-
-			user_data_lock();
 			assert(0 < elem->e_made);
 			elem->e_made++;
-			user_data_unlock();
-
-			*out_value = (mach_voucher_attr_value_handle_t)elem;
+			*out_value = prev_values[0];
 			return KERN_SUCCESS;
 		}
 

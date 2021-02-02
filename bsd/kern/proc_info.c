@@ -2477,7 +2477,7 @@ fill_fileinfo(struct fileproc * fp, proc_t proc, int fd, struct proc_fileinfo * 
 			fproc->fi_status |= PROC_FP_CLFORK;
 		}
 	}
-	if (fp_isguarded(fp, 0)) {
+	if (FILEPROC_TYPE(fp) == FTYPE_GUARDED) {
 		fproc->fi_status |= PROC_FP_GUARDED;
 		fproc->fi_guardflags = 0;
 		if (fp_isguarded(fp, GUARD_CLOSE)) {
