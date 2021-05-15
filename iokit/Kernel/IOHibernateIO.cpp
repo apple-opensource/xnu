@@ -201,7 +201,17 @@ static uuid_string_t            gIOHibernateBridgeBootSessionUUIDString;
 
 static uint32_t                 gIOHibernateFreeRatio = 0;       // free page target (percent)
 uint32_t                        gIOHibernateFreeTime  = 0 * 1000;  // max time to spend freeing pages (ms)
-static uint64_t                 gIOHibernateCompression = 0x80;  // default compression 50%
+
+enum {
+	HIB_COMPR_RATIO_ARM64  = (0xa5),  // compression ~65%. Since we don't support retries we start higher.
+	HIB_COMPR_RATIO_INTEL  = (0x80)   // compression 50%
+};
+
+#if defined(__arm64__)
+static uint64_t                 gIOHibernateCompression = HIB_COMPR_RATIO_ARM64;
+#else
+static uint64_t                 gIOHibernateCompression = HIB_COMPR_RATIO_INTEL;
+#endif /* __arm64__ */
 boolean_t                       gIOHibernateStandbyDisabled;
 
 static IODTNVRAM *              gIOOptionsEntry;
@@ -1452,36 +1462,37 @@ IOHibernateWasScreenLocked(void)
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
 SYSCTL_STRING(_kern, OID_AUTO, hibernatefile,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_LOCKED,
     gIOHibernateFilename, sizeof(gIOHibernateFilename), "");
 SYSCTL_STRING(_kern, OID_AUTO, bootsignature,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_LOCKED,
     gIOHibernateBootSignature, sizeof(gIOHibernateBootSignature), "");
 SYSCTL_UINT(_kern, OID_AUTO, hibernatemode,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_LOCKED,
     &gIOHibernateMode, 0, "");
 SYSCTL_STRUCT(_kern, OID_AUTO, hibernatestatistics,
-    CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
+    CTLTYPE_STRUCT | CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_LOCKED,
     &_hibernateStats, hibernate_statistics_t, "");
-SYSCTL_STRING(_kern_bridge, OID_AUTO, bootsessionuuid,
-    CTLFLAG_RD | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
-    gIOHibernateBridgeBootSessionUUIDString, sizeof(gIOHibernateBridgeBootSessionUUIDString), "");
+SYSCTL_OID_MANUAL(_kern_bridge, OID_AUTO, bootsessionuuid,
+    CTLTYPE_STRING | CTLFLAG_RD | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_LOCKED,
+    gIOHibernateBridgeBootSessionUUIDString, sizeof(gIOHibernateBridgeBootSessionUUIDString),
+    sysctl_handle_string, "A", "");
 
 SYSCTL_UINT(_kern, OID_AUTO, hibernategraphicsready,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_ANYBODY,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_ANYBODY,
     &_hibernateStats.graphicsReadyTime, 0, "");
 SYSCTL_UINT(_kern, OID_AUTO, hibernatewakenotification,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_ANYBODY,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_ANYBODY,
     &_hibernateStats.wakeNotificationTime, 0, "");
 SYSCTL_UINT(_kern, OID_AUTO, hibernatelockscreenready,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_ANYBODY,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_ANYBODY,
     &_hibernateStats.lockScreenReadyTime, 0, "");
 SYSCTL_UINT(_kern, OID_AUTO, hibernatehidready,
-    CTLFLAG_RW | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_ANYBODY,
+    CTLFLAG_RW | CTLFLAG_KERN | CTLFLAG_ANYBODY,
     &_hibernateStats.hidReadyTime, 0, "");
 
 SYSCTL_UINT(_kern, OID_AUTO, hibernatecount,
-    CTLFLAG_RD | CTLFLAG_NOAUTO | CTLFLAG_KERN | CTLFLAG_ANYBODY,
+    CTLFLAG_RD | CTLFLAG_KERN | CTLFLAG_ANYBODY,
     &gIOHibernateCount, 0, "");
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
@@ -1550,16 +1561,6 @@ IOHibernateSystemInit(IOPMrootDomain * rootDomain)
 	} else {
 		gIOHibernateFilename[0] = 0;
 	}
-
-	sysctl_register_oid(&sysctl__kern_hibernatefile);
-	sysctl_register_oid(&sysctl__kern_bootsignature);
-	sysctl_register_oid(&sysctl__kern_hibernatemode);
-	sysctl_register_oid(&sysctl__kern_hibernatestatistics);
-	sysctl_register_oid(&sysctl__kern_hibernategraphicsready);
-	sysctl_register_oid(&sysctl__kern_hibernatewakenotification);
-	sysctl_register_oid(&sysctl__kern_hibernatelockscreenready);
-	sysctl_register_oid(&sysctl__kern_hibernatehidready);
-	sysctl_register_oid(&sysctl__kern_hibernatecount);
 
 	gIOChosenEntry = IORegistryEntry::fromPath("/chosen", gIODTPlane);
 
@@ -2179,6 +2180,18 @@ hibernate_write_image(void)
 		header->sleepTime    = gIOLastSleepTime.tv_sec;
 
 		header->compression     = ((uint32_t)((compressedSize << 8) / uncompressedSize));
+#if defined(__arm64__)
+		/*
+		 * We don't support retry on hibernation failure and so
+		 * we don't want to set this value to anything smaller
+		 * just because we may have been lucky this time around.
+		 * Though we'll let it go higher.
+		 */
+		if (header->compression < HIB_COMPR_RATIO_ARM64) {
+			header->compression  = HIB_COMPR_RATIO_ARM64;
+		}
+#endif /* __arm64__ */
+
 		gIOHibernateCompression = header->compression;
 
 		count = vars->fileVars->fileExtents->getLength();

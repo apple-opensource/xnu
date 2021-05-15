@@ -27,6 +27,9 @@
  */
 
 #include <pexpert/pexpert.h>
+#if __arm64__
+#include <pexpert/arm64/board_config.h>
+#endif /* __arm64__ */
 
 #include <arm/cpuid_internal.h>
 #include <arm/pmap.h>
@@ -51,3 +54,25 @@ configure_misc_apple_regs(void)
 }
 
 #endif /* __arm64__ */
+
+#if HAS_APPLE_PAC
+
+
+/**
+ * Returns the default ROP key.
+ */
+uint64_t
+ml_default_rop_pid(void)
+{
+	return 0;
+}
+
+/**
+ * Returns the default JOP key.
+ */
+uint64_t
+ml_default_jop_pid(void)
+{
+	return 0;
+}
+#endif /* HAS_APPLE_PAC */

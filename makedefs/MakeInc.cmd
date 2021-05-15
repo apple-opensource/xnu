@@ -185,6 +185,9 @@ endif
 ifeq ($(LIBTOOL),)
 	export LIBTOOL := $(shell $(XCRUN) -sdk $(SDKROOT) -find libtool)
 endif
+ifeq ($(OTOOL),)
+	export OTOOL := $(shell $(XCRUN) -sdk $(SDKROOT) -find otool)
+endif
 ifeq ($(NM),)
 	export NM := $(shell $(XCRUN) -sdk $(SDKROOT) -find nm)
 endif
@@ -205,6 +208,9 @@ ifeq ($(CTFINSERT),)
 endif
 ifeq ($(NMEDIT),)
 	export NMEDIT := $(shell $(XCRUN) -sdk $(SDKROOT) -find nmedit)
+endif
+ifeq ($(SCAN_BUILD),)
+	export SCAN_BUILD := $(shell $(XCRUN) -sdk $(SDKROOT) -find scan-build)
 endif
 
 #
@@ -255,6 +261,7 @@ SLEEP = /bin/sleep
 AWK = /usr/bin/awk
 SED = /usr/bin/sed
 PLUTIL = /usr/bin/plutil
+GREP = /usr/bin/grep
 
 #
 # Command to generate host binaries. Intentionally not
